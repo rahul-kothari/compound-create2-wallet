@@ -17,6 +17,7 @@ const myContractAbi = getAbi("MyContracts.sol/MyContract.json")
 
 let myContractAddress = ""
 let myContract: Contract;
+const ethWeiToBorrow = BigNumber.from("2000000000000000");
 
 const largeHolderAddress = "0x5D38B4e4783E34e2301A2a36c39a03c45798C4dD"
 const daiAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
@@ -92,16 +93,15 @@ async function main() {
 
   console.log(`\nCalling MyContract.borrowEthExample with ${underlyingAsCollateral} ${assetName} as collateral...\n`);
 
-  const borrowTx = await myContract.borrowEthExample(BigNumber.from("2000000000000000"));
-  let result = await borrowTx.wait(1);
+  const borrowTx = await myContract.borrowEth(ethWeiToBorrow);
+  await borrowTx.wait(1);
 
   await logBalances(dai, cDai, cEth, myContractAddress);
 
   console.log(`\nNow repaying the borrow...\n`);
-  const ethToRepayBorrow = 0.002; // hard coded borrow in contract
-  const repayTx = await myContract.myEthRepayBorrow(
+  const repayTx = await myContract.repayEthBorrow(
     cEthAddress,
-    ethers.utils.parseEther(ethToRepayBorrow.toString()),
+    ethWeiToBorrow,
     300000 // gas for the "cEth.repayBorrow" function
   );
   await repayTx.wait(1);
