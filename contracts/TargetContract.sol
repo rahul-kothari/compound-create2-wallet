@@ -13,6 +13,19 @@ contract TargetContract {
         comptroller = Comptroller(compAddr);
     }
 
+    function transferTokens(
+    IErc20 token,
+    uint256 amount,
+    address to,
+    address recipient
+  ) external {
+    // Transfer tokens from user to PRBProxy.
+    token.transferFrom(msg.sender, to, amount);
+
+    // Transfer tokens from PRBProxy to specific recipient.
+    token.transfer(recipient, amount);
+  }
+
   function supplyERC20Collateral(
         address _cTokenAddress,
         address _underlyingAddress,
