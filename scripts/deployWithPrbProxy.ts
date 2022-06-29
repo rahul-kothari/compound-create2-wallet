@@ -23,7 +23,6 @@ function getAbi(path: string) {
   return JSON.parse(fs.readFileSync(`${DEFAULT_ARTIFACTS_PATH}/${path}`)).abi
 };
 
-
 // async function that deploys prb proxy.
 async function deployPrbProxy(signer: SignerWithAddress): Promise<PRBProxy> {
   const registry: PRBProxyRegistry = getPRBProxyRegistry(signer);
@@ -44,7 +43,6 @@ async function deployTargetContract(signer: SignerWithAddress): Promise<Contract
   return targetContract;
 }
 
-
 async function main() {
   // impersonate a large holder of DAI
   await hre.network.provider.request({
@@ -57,27 +55,20 @@ async function main() {
   const prbProxy = await deployPrbProxy(largeHolderSigner);
   // deploy target contract
   const targetContract = await deployTargetContract(largeHolderSigner);
-
+  // dai contract:
   const dai = new ethers.Contract(daiAddress, erc20Abi, largeHolderSigner);
-  await dai.approve(prbProxy.address, ethers.constants.MaxUint256);
 
+  const underlyingAsCollateral = 25;
+  const mantissa = (underlyingAsCollateral * Math.pow(10, underlyingDecimals)).toString();
+  console.log(`\nSending ${underlyingAsCollateral} ${assetName} to Proxy Contract so it can provide collateral...\n`);
+  // Send underlying to MyContract before attempting the supply
+  const transferTx = await dai.transfer(prbProxy.address, mantissa);
+  await transferTx.wait(1);
 
-  
-  // Encode the target contract call as calldata.
-  const amount: BigNumber = parseUnits("100", underlyingDecimals);
-  const recipient: string = (await ethers.getSigners())[0].address;
-  const data: string = targetContract.interface.encodeFunctionData("transferTokens", [daiAddress, amount, prbProxy.address, recipient]);
-
-  console.log(await dai.balanceOf(largeHolderAddress));
-  console.log(await dai.balanceOf(recipient));
-  console.log(await dai.balanceOf(prbProxy.address));
-
-  // Execute the composite call.
-  const receipt = await prbProxy.execute(targetContract.address, data);
-  console.log(receipt);
-
-  console.log(await dai.balanceOf(largeHolderAddress));
-  console.log(await dai.balanceOf(recipient));
+  // mint cToken and enter market
+  console.log(`\nCalling supplyErc20 with ${underlyingAsCollateral} ${assetName} as collateral...\n`);
+  const data = targetContract.interface.encodeFunctionData("supplyERC20Collateral", [cDaiAddress, daiAddress, mantissa]);
+  const receipt = await prbProxy.connect(largeHolderSigner).execute(targetContract.address, data, {gasLimit: 100000});
 }
 
 main().catch((error) => {
